@@ -45,6 +45,7 @@ void setup()
   display.flipScreenVertically();
   display.setFont(ArialMT_Plain_10);
   display.setColor(WHITE);
+  Serial_OLED("Twin-S Start..");
   EEPROM.begin(512);
   Serial.begin(9600);                  
   Twin_S.begin(9600);
@@ -94,30 +95,82 @@ void Twin_Check()
   inputchar = Twin_S.read();
   input = int(inputchar);
   if((input!=255)&&(input!=10)&&(input!=0)&&(input!=13)) {
-    Serial_OLED(inputchar + " " +String(input));
+    // Serial_OLED(inputchar + " " +String(input));
+    Serial.print(inputchar);
+    Serial.print(" ");
+    Serial.println(String(input));
     data += inputchar;
   }
   
   if (input==10) {
     ER = EEPROM_read(6,6);
-    if (ER!="Twin-S")
+    if (ER!="Twin-S") // Restart
     {
-      Serial_OLED(data);
-      if (data=="Twin-S")
+      if (data=="Twin-S" || data=="Twin-X" || data=="Twin-C" || data=="Twin-D")
       {
-        Twin_S.println("Twin-S");
-        Serial_OLED("Twin Connected...");
-        EEPROM_write(6,"Twin-S");
+        Serial_OLED(data);      
       }
-    } else 
-    {
-      Serial_OLED(data);
       if (data=="Twin-S")
       {
-        Twin_S.println("Twin-S");
-        Serial_OLED("Twin Reconnected...");
-        //EEPROM_write(6,"Twin-S");
-      }      
+        Twin_S.println("");
+        delay(2000);
+        Twin_S.println("Twin-X");
+        Serial_OLED("pair...");
+        Serial.println("pair...");
+        EEPROM_write(6,"Twin-S");
+      } else
+      {
+        if (data=="Twin-X")
+        {
+          Serial_OLED("pair...recheck");
+          Serial.println("pair...recheck");
+          EEPROM_write(6,"Twin-S");                  
+          Twin_S.println("");
+          delay(2000);
+          Twin_S.println("Twin-C");
+        }
+      }
+    } else // already connected
+    {
+      if (data=="Twin-S" || data=="Twin-X" || data=="Twin-C" || data=="Twin-D")
+      {
+        Serial_OLED(data);      
+      }
+      if (data=="Twin-S")
+      {
+        Twin_S.println("");
+        delay(2000);
+        Twin_S.println("Twin-X");
+        Serial_OLED("repair...");
+        Serial.println("repair...");
+      } else
+      {
+        if (data=="Twin-X")
+        {
+          Serial_OLED("repair...recheck");
+          Serial.println("repair...recheck");
+          Twin_S.println("");
+          delay(2000);
+          Twin_S.println("Twin-C");
+        } else
+        {
+          if (data=="Twin-C") //recheck
+          {
+            Serial_OLED("C-Connected");
+            Serial.println("C-Connected");
+            Twin_S.println("");
+            delay(2000);
+            Twin_S.println("Twin-D");      
+          } else 
+          {
+            if (data=="Twin-D") //final
+            {
+              Serial_OLED("D-Connected");
+              Serial.println("D-Connected");          
+            }
+          } 
+        }
+      }
     }
     data = "";
   }
