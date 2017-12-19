@@ -1,27 +1,26 @@
-#include <Arduino.h>
+#include <ESP32WebServer.h> //https://github.com/nhatuan84/esp32-webserver
 #include <WiFi.h>
-#include <WiFiMulti.h>
 #include <HTTPClient.h>
 
-uint64_t chipid;  
 IPAddress apIP(192, 168, 1, 1);
 String ssid;
 String password;
 int connect = 0;
+uint64_t chipid;
 
 String newssid;
 String newpassword;
 
 const char* host = "192.168.1.1";
 
-WiFiServer server(80);
+ESP32WebServer server(80);
 
 int count = 0;
 String payload;
 byte value;
 
-void setup() {
-  chipid=ESP.getEfuseMac();
+void setup(void){
+  chipid = ESP.getEfuseMac();
   newssid = "ESP"+String((uint32_t)chipid);
   newpassword = String((uint32_t)chipid);
   Serial.begin(115200);
@@ -38,61 +37,83 @@ void setup() {
   Serial.print(" server ip: ");
   Serial.println(WiFi.softAPIP());
 
-  // server.on("/", handleRoot);  
-  // server.onNotFound(handleNotFound);  
+  server.on("/", handleRoot);  
+  server.onNotFound(handleNotFound);  
   server.begin();
   Serial.println("HTTP server started");
   payload = "";
 }
+ 
+void loop(void){
+  server.handleClient();
+}
 
-void loop(){
- WiFiClient client = server.available();   // listen for incoming clients
-
-  if (client) {                             // if you get a client,
-    Serial.println("New Client.");           // print a message out the serial port
-    String buf;
-    String currentLine = "";                // make a String to hold incoming data from the client
-    while (client.connected()) {            // loop while the client's connected
-      if (client.available()) {             // if there's bytes to read from the client,
-        char c = client.read();             // read a byte, then
-        buf += String(c);
-        Serial.write(c);                    // print it out the serial monitor
-        if (c == '\n') {                    // if the byte is a newline character
-          // if the current line is blank, you got two newline characters in a row.
-          // that's the end of the client HTTP request, so send a response:
-          if (currentLine.length() == 0) {
-            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-            // and a content-type so the client knows what's coming, then a blank line:
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-type:text/html");
-            client.println();
-
-            // the content of the HTTP response follows the header:
-            client.print("Click <a href=\"/H\">here</a> to turn the LED on pin 5 on.<br>");
-            client.print("Click <a href=\"/L\">here</a> to turn the LED on pin 5 off.<br>");
-
-            // The HTTP response ends with another blank line:
-            client.println();
-            // break out of the while loop:
-            break;
-          } else {    // if you got a newline, then clear currentLine:
-            currentLine = "";
-          }
-        } else if (c != '\r') {  // if you got anything else but a carriage return character,
-          currentLine += c;      // add it to the end of the currentLine
-        }
-      }
+void handleRoot() {
+  Serial.print("handleRoot: ");
+  Serial.println(count);
+  chipid = ESP.getEfuseMac();
+  String s = "ESP ChipId : "+String((uint32_t)chipid)+"<br>request count: ";
+  s += ++count;
+  s += "<br>";
+  if (connect == 0) {
+    int n = WiFi.scanNetworks();
+    Serial.print("scan done");
+    if (n == 0) {
+      Serial.println("no networks found");
+    } else {
+      Serial.print(n);
+      Serial.println(" networks found");
     }
-    int sGET = buf.indexOf('GET /');
-    int sHTTP = buf.indexOf('HTTP');
-    String request;
-    if (sHTTP > sGET) {
-       request = buf.substring(sGET,sHTTP);
-       Serial.println('HEY!');
-       Serial.println(request);
+    for (int i = 0; i<n; ++i) {
+      s += "<a href='http://192.168.1.1/";
+      s += WiFi.SSID(i);
+      s += "'>";
+      s += WiFi.SSID(i);
+      s += "</a><br>";
     }
-    // close the connection:
-    client.stop();
-    Serial.println("Client Disconnected.");
+  } else {
+    s += "this node connect to SSID :"+ssid+"<br>";
   }
+  server.send(200, "text/html", s);
+}
+
+void handleNotFound() {
+  Serial.print("request :");
+  Serial.println(server.uri());
+  ssid = String(server.uri()).substring(1);
+  password = String(server.uri()).substring(4);
+  count++;
+
+  if (connect == 0) {
+    payload = "request : "+ssid;
+    WiFi.begin(ssid.c_str(), password.c_str());
+    while (WiFi.status() != WL_CONNECTED) {
+      Serial.print('.');
+      delay(1000);
+    }
+    Serial.print("Connected to: ");
+    Serial.print(WiFi.SSID());
+    Serial.print(", IP address: ");
+    Serial.println(WiFi.localIP());
+    connect = 1;
+  }
+  HTTPClient http;
+  Serial.print("[HTTP]begin...\n");
+  http.begin(host);
+  Serial.print("[HTTP]GET...\n");
+  int httpCode = http.GET();
+  if(httpCode > 0) {
+    // Serial.printf("[HTTP]GET...code: %d\n", httpCode);
+    if(httpCode == HTTP_CODE_OK){
+      payload = http.getString();
+      // Serial.println(payload);
+      int equal = payload.indexOf('=');
+      int value = payload.substring(equal+1).toInt();
+    }
+  } else {
+    Serial.printf("[HTTP]GET...failed, error: %s\n",http.errorToString(httpCode).c_str());
+  }
+  http.end();
+  server.send(200, "text/html", payload);
+
 }
