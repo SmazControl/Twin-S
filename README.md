@@ -1,3 +1,7 @@
+# Dummy of this project crator ^__^
+ESP can use WiFi.mode(WIFI_AP_STA); for 2 way communication already (19/12/2017)
+- You can find ESP8266 and ESP32 in AP_STA in cleaver folder in this Git
+
 # version
 all version upload and debugging by one computer only 
 - Twins_v100.ino  Start version for Serial communication between 2 of NodeMCU 1.0
