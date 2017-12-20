@@ -1,4 +1,3 @@
-// Can't use hang in Wifi Scan 
 #include <ESP32WebServer.h> //https://github.com/nhatuan84/esp32-webserver
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -8,7 +7,7 @@ String ssid;
 String password;
 int connect = 0;
 uint64_t chipid;
-
+int n;
 String newssid;
 String newpassword;
 String host;
@@ -32,6 +31,10 @@ void setup(void){
   delay(1000);
   // set both access point and station
   WiFi.mode(WIFI_AP_STA);
+  delay(100);
+  Serial.println("scan start");
+  n = WiFi.scanNetworks();
+  Serial.println("scan done");
   WiFi.softAPConfig(apIP,apIP,IPAddress(255, 255, 255, 0));
   WiFi.softAP(newssid.c_str(), newpassword.c_str());
   Serial.print(newssid);
@@ -57,9 +60,9 @@ void handleRoot() {
   s += ++count;
   s += "<br>";
   if (connect == 0) {
-    Serial.println("scan start");
-    int n = WiFi.scanNetworks();
-    Serial.print("scan done");
+    // Serial.println("scan start");
+    // int n = WiFi.scanNetworks();
+    // Serial.print("scan done");
     if (n == 0) {
       Serial.println("no networks found");
     } else {
