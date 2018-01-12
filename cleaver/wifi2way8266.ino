@@ -1,8 +1,6 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
-#include <ESP8266HTTPClient.h>
 
-IPAddress apIP(192, 168, 1, 1);
 String ssid;
 String password;
 int connect = 0;
@@ -28,7 +26,7 @@ void setup(void){
   Serial.println("start scan");
   n = WiFi.scanNetworks();
   Serial.println("scan done");
-  WiFi.softAPConfig(apIP,apIP,IPAddress(255, 255, 255, 0));
+  // WiFi.softAPConfig(apIP,apIP,IPAddress(255, 255, 255, 0));
   WiFi.softAP(newssid.c_str(), newpassword.c_str());
   Serial.print(newssid);
   Serial.print(" server ip: ");
@@ -46,28 +44,28 @@ void loop(void){
 }
 
 void handleIp() {
-    host = "http://"+String(server.arg(0));
+    host = String(server.arg(0));
     String s;
     Serial.print("[HTTP]begin...\n");
-    HTTPClient http;
-    http.begin(host);
     Serial.println(host);
-    Serial.print("[HTTP]GET...\n");
-    int httpCode = http.GET();
-    if(httpCode > 0) {
-      // Serial.printf("[HTTP]GET...code: %d\n", httpCode);
-      if(httpCode == HTTP_CODE_OK){
-        s = http.getString();
-        // Serial.println(s);
-        // int equal = s.indexOf('=');
-        // int value = s.substring(equal+1).toInt();
-      }
-    } else {
-      s += host+"<br>";
-      s += "[HTTP]GET...failed "+http.errorToString(httpCode)+"<br>";
-      Serial.printf("[HTTP]GET...failed, error: %s\n",http.errorToString(httpCode).c_str());
+    WiFiClient client;
+    if (!client.connect(host.c_str(), 80)) {
+      Serial.print("Connection failed");
+      s = s + "Connection failed";
+      return;
     }
-    http.end();
+    String url = "";
+    client.print(String("GET") + url + "HTTP/1.1\r\n" +
+      "Host: " + host + "\r\n" + 
+      "Connection: close\r\n\r\n");
+    delay(10);
+    while(client.available()){
+      String line = client.readStringUntil('\r');
+      Serial.print(line);
+      s = s + line;
+    }
+    client.stop();
+    Serial.print("[HTTP]GET...\n");
     s += "<br><br><br>";
     s += "ESP ChipId : 000"+String(ESP.getChipId())+"<br>";
     s += "this node connect to SSID :"+ssid+"<br>";
@@ -83,9 +81,6 @@ void handleRoot() {
   s += ++count;
   s += "<br>";
   if (connect == 0) {
-    // Serial.println("start scan");
-    // int n = WiFi.scanNetworks();
-    // Serial.println("scan done");
     if (n == 0) {
       Serial.println("no networks found");
     } else {
@@ -94,7 +89,7 @@ void handleRoot() {
     }
     s += "<table>";
     for (int i = 0; i<n; ++i) {
-      s += "<tr><form action='http://192.168.1.1/";
+      s += "<tr><form action='/";
       s += WiFi.SSID(i);
       s += "'><th>";
       s += WiFi.SSID(i);
